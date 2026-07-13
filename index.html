@@ -2,8 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="RTU Tracker">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#4974FF">
 <title>QuadReal Industrial — RTU QR Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,13 +25,12 @@
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--sans);}
-  body{padding-bottom:44px;overflow-x:hidden;}
+  body{padding-bottom:calc(44px + env(safe-area-inset-bottom));overflow-x:hidden;}
 
   /* ===== Header (QR Blue dominant) ===== */
   header{position:sticky;top:0;z-index:30;background:var(--qr-blue);color:#fff;
-    padding:14px 16px 14px;box-shadow:0 4px 14px rgba(23,48,115,.28);}
+    padding:calc(14px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 14px calc(16px + env(safe-area-inset-left));box-shadow:0 4px 14px rgba(23,48,115,.28);}
   .brandrow{display:flex;align-items:center;gap:11px;}
-  .quad{width:30px;height:30px;flex:0 0 auto;}
   .wordmark{font-family:var(--sans);font-weight:700;font-size:19px;letter-spacing:-.3px;line-height:1;}
   .wordmark sup{font-size:9px;font-weight:600;top:-.7em;}
   .subbrand{font-size:11px;opacity:.9;margin-top:1px;letter-spacing:.2px;}
@@ -129,14 +131,6 @@
 <body>
 <header>
   <div class="brandrow">
-    <svg class="quad" viewBox="0 0 100 100" aria-label="QuadReal">
-      <defs><linearGradient id="qg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#B7C9FF"/><stop offset="1" stop-color="#173073"/></linearGradient></defs>
-      <path d="M50 4 A46 46 0 0 1 96 50 L50 50 Z" fill="url(#qg)"/>
-      <path d="M96 50 A46 46 0 0 1 50 96 L50 50 Z" fill="#fff" opacity=".92"/>
-      <path d="M50 96 A46 46 0 0 1 4 50 L50 50 Z" fill="url(#qg)"/>
-      <path d="M4 50 A46 46 0 0 1 50 4 L50 50 Z" fill="#fff" opacity=".92"/>
-    </svg>
     <div>
       <div class="wordmark">QuadReal<sup>TM</sup></div>
       <div class="subbrand">PROPERTY GROUP</div>
@@ -163,7 +157,6 @@
 
 <div class="controls">
   <input class="search" id="search" type="search" placeholder="Search building or RTU…" oninput="applyFilter()">
-  <div class="chips" id="chips"></div>
   <div class="toolbar">
     <button class="tbtn solid" onclick="exportCSV()">Export CSV</button>
     <button class="tbtn" onclick="copySummary()">Copy Summary</button>
@@ -202,12 +195,6 @@ let activePF='All';
 let openSet=new Set();
 let query='';
 
-function buildChips(){
-  const c=document.getElementById('chips');
-  const pfs=['All',...PORTFOLIOS];
-  c.innerHTML=pfs.map(p=>`<div class="chip${p===activePF?' on':''}" onclick="setPF('${p.replace(/'/g,"")}')">${p}</div>`).join('');
-}
-function setPF(p){activePF=p;buildChips();render();}
 function applyFilter(){query=document.getElementById('search').value.trim().toLowerCase();render();}
 
 function matches(b,bi){
@@ -332,7 +319,7 @@ function copySummary(){const t=totals();
 function resetAll(){if(!confirm('Reset ALL progress across every building? This clears every checkmark and note.'))return;
   state=blankState();save();render();document.getElementById('allDone').classList.remove('show');toast('Progress reset');}
 
-buildChips();render();
+render();
 </script>
 </body>
 </html>
