@@ -154,8 +154,8 @@
   .chk{display:inline-flex;align-items:center;gap:6px;min-height:var(--tap);border:1.5px solid var(--line-2);border-radius:12px;padding:0 8px;background:#fff;font:inherit;font-weight:700;font-size:13px;color:var(--muted);cursor:pointer;transition:.12s;flex:1 1 0;min-width:0;justify-content:center}
   .chk .box{width:20px;height:20px;border-radius:7px;border:2px solid var(--line-2);flex:0 0 auto;display:grid;place-items:center;color:#fff;transition:.12s}
   .chk .box svg{opacity:0;transform:scale(.4);transition:.12s}
-  .chk.on{border-color:var(--qr-blue);background:var(--blue-soft);color:var(--qr-midnight)}
-  .chk.on .box{background:var(--qr-blue);border-color:var(--qr-blue)}
+  .chk.on{border-color:var(--good);background:var(--good-soft);color:var(--qr-midnight)}
+  .chk.on .box{background:var(--good);border-color:var(--good)}
   .chk.on .box svg{opacity:1;transform:scale(1)}
   .chk:active{transform:translateY(1px)}
   .chk:focus-visible{outline:2.5px solid var(--qr-blue);outline-offset:2px}
@@ -298,8 +298,8 @@
 
 <script src="piexif.js"></script>
 <script>
-const APP_VER='v1.1.23';
-const BUILD=34;
+const APP_VER='v1.1.24';
+const BUILD=35;
 const CF_API='https://rtu-pictures-api.krutki11.workers.dev';
 const CF_SESSION_KEY='rtu_cf_session_token';
 function cfGetToken(){try{return sessionStorage.getItem(CF_SESSION_KEY)||'';}catch(_){return '';}}
