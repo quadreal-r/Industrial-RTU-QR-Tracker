@@ -315,8 +315,8 @@
 
 <script src="piexif.js"></script>
 <script>
-const APP_VER='v1.1.32';
-const BUILD=43;
+const APP_VER='v1.1.33';
+const BUILD=44;
 const CF_API='https://rtu-pictures-api.krutki11.workers.dev';
 const CF_SESSION_KEY='rtu_cf_session_token';
 function cfGetToken(){try{return sessionStorage.getItem(CF_SESSION_KEY)||'';}catch(_){return '';}}
@@ -441,8 +441,8 @@ function rec(id,key){
 }
 function stateOf(id,key){const m=mem[id];return (m&&m.r&&m.r[key])||null;}
 
-/* ---------------- photos: take up to 3, green at 3 of 3 ---------------- */
-const PHOTO_DB='qr_rtu_photos_v1', PHOTO_STORE='photos', PHOTO_NEED=3;
+/* ---------------- photos: up to 4 slots; complete/green at 3 ---------------- */
+const PHOTO_DB='qr_rtu_photos_v1', PHOTO_STORE='photos', PHOTO_NEED=3, PHOTO_MAX=4;
 function photoSlotKey(bid,rk,slot){return bid+'|'+rk+'|'+slot;}
 function streetLetterFromName(name){
   const n=(name||'').trim();
@@ -518,25 +518,26 @@ function photoDel(key){
   }));
 }
 function ensurePhotoSlots(o){
-  if(!o.p || !Array.isArray(o.p)) o.p=[false,false,false];
-  while(o.p.length<PHOTO_NEED) o.p.push(false);
-  if(o.p.length>PHOTO_NEED) o.p=o.p.slice(0,PHOTO_NEED);
+  if(!o.p || !Array.isArray(o.p)) o.p=[false,false,false,false];
+  while(o.p.length<PHOTO_MAX) o.p.push(false);
+  if(o.p.length>PHOTO_MAX) o.p=o.p.slice(0,PHOTO_MAX);
   return o.p;
 }
 function photoCount(o){
   if(!o) return 0;
   // Real captures win; empty p[] with ph=true is legacy confirmation
-  if(Array.isArray(o.p) && o.p.some(Boolean)) return Math.min(PHOTO_NEED, o.p.filter(Boolean).length);
+  if(Array.isArray(o.p) && o.p.some(Boolean)) return Math.min(PHOTO_MAX, o.p.filter(Boolean).length);
   if(o.ph) return PHOTO_NEED;
   return 0;
 }
 function photosDone(o){return photoCount(o)>=PHOTO_NEED;}
+function photosFull(o){return photoCount(o)>=PHOTO_MAX;}
 function syncPhotoFlag(o){o.ph=photosDone(o);return o;}
 function nextPhotoSlot(o){
   if(!o) return 0;
   if(o.ph && (!Array.isArray(o.p) || !o.p.some(Boolean))) return -1; // legacy complete
   ensurePhotoSlots(o);
-  for(let i=0;i<PHOTO_NEED;i++) if(!o.p[i]) return i;
+  for(let i=0;i<PHOTO_MAX;i++) if(!o.p[i]) return i;
   return -1;
 }
 function readFileAsDataURL(file){
@@ -722,7 +723,7 @@ function rtuHay(b,r){
   const flags=[];
   if(o.s)flags.push('sticker');
   const pc=photoCount(o);
-  if(pc)flags.push('photo photos',pc+' of 3');
+  if(pc)flags.push('photo photos',pc+' of '+PHOTO_MAX);
   if(pc>=PHOTO_NEED)flags.push('photos done'); else if(pc)flags.push('photos incomplete');
   if(complete(o))flags.push('done complete finished'); else flags.push('incomplete remaining open pending');
   if(r.uid)flags.push('has uid'); else flags.push('no uid missing uid unassigned');
@@ -814,7 +815,7 @@ function renderProps(){
   const eyebrow=searching?'Search results':'Rooftop unit labeling';
   const sub=searching
     ? `<b>${ms.rtus.toLocaleString()}</b> RTU${ms.rtus===1?'':'s'} match “${esc(q)}” · ${ms.buildings} building${ms.buildings===1?'':'s'} · ${ms.groups} group${ms.groups===1?'':'s'}`
-    : `${filters.cluster==='all'?'Across all clusters':esc(filters.cluster)} — sticker &amp; 3 photos each`;
+    : `${filters.cluster==='all'?'Across all clusters':esc(filters.cluster)} — sticker &amp; 3 photos (up to 4) each`;
   const capRight=searching
     ? `${ms.rtus.toLocaleString()} RTU match${ms.rtus===1?'':'es'}`
     : `${list.length} groups`;
@@ -906,24 +907,25 @@ function renderBuildings(){
 
 function photoBtnHTML(o){
   const n=photoCount(o);
-  const full=n>=PHOTO_NEED;
-  return `<button type="button" class="chk tk-p ph-add${full?' done':''}" ${full?'disabled':''} aria-pressed="${full}"><span class="box">${CAM}</span>Photo</button>`;
+  const done=n>=PHOTO_NEED;
+  const full=n>=PHOTO_MAX;
+  return `<button type="button" class="chk tk-p ph-add${done?' done':''}" ${full?'disabled':''} aria-pressed="${done}"><span class="box">${CAM}</span>Photo</button>`;
 }
 function photosBlockHTML(o){
   const n=photoCount(o);
-  const slots=Array.isArray(o.p)?o.p:[false,false,false];
+  const slots=Array.isArray(o.p)?o.p:[false,false,false,false];
   const legacy=!!(o.ph && !Array.isArray(o.p));
   const cls=n>=PHOTO_NEED?'pref':(n>0?'met':'');
-  const angs=[0,1,2].map(i=>{
-    const on=legacy?true:!!slots[i];
+  const angs=Array.from({length:PHOTO_MAX},(_,i)=>{
+    const on=legacy?(i<PHOTO_NEED):!!slots[i];
     if(on){
-      return `<a class="ang has" data-slot="${i}" href="#" aria-label="View photo ${i+1} of 3"><span class="ph-slot">${i+1}</span><button type="button" class="ang-del" data-del="${i}" aria-label="Delete photo ${i+1}">&times;</button></a>`;
+      return `<a class="ang has" data-slot="${i}" href="#" aria-label="View photo ${i+1} of ${PHOTO_MAX}"><span class="ph-slot">${i+1}</span><button type="button" class="ang-del" data-del="${i}" aria-label="Delete photo ${i+1}">&times;</button></a>`;
     }
     return `<span class="ang" data-slot="${i}" aria-hidden="true"><span class="ph-slot">${i+1}</span></span>`;
   }).join('');
-  return `<div class="photos ${cls}" role="group" aria-label="Photos ${n} of 3">
+  return `<div class="photos ${cls}" role="group" aria-label="Photos ${n} of ${PHOTO_MAX}">
       <div class="angs">${angs}</div>
-      <span class="phint ${cls}">${n} of 3</span>
+      <span class="phint ${cls}">${n} of ${PHOTO_MAX}</span>
       <input class="phfile" type="file" accept="image/*" capture="environment">
     </div>`;
 }
@@ -1027,7 +1029,7 @@ function wireRtu(){
     if(addBtn) addBtn.onclick=()=>{
       const o=stateOf(id,k)||rec(id,k).r[k];
       const slot=nextPhotoSlot(o);
-      if(slot<0){toast('3 of 3 photos done');return;}
+      if(slot<0){toast(PHOTO_MAX+' of '+PHOTO_MAX+' photos saved');return;}
       pendingShot={id,k,slot,row,bi,b,r};
       // Warm GPS permission so coordinates can be stamped if the camera file lacks EXIF GPS
       getDeviceGps(2500);
@@ -1055,7 +1057,7 @@ function wireRtu(){
         const m=rec(id,k);const o=m.r[k];
         const wasLegacy=!!(o.ph && (!Array.isArray(o.p) || !o.p.some(Boolean)));
         ensurePhotoSlots(o);
-        if(wasLegacy) o.p=[false,false,false];
+        if(wasLegacy) o.p=[false,false,false,false];
         o.p[slot]=true;syncPhotoFlag(o);
         persist(id);refreshRow(id,k,row,bi,b);toast(title);
       }catch(err){console.error(err);alert('Could not save that photo. Try again.');}
@@ -1080,7 +1082,7 @@ async function clearPhotoSlot(id,k,slot,row,bi,b,opts){
   const m=rec(id,k);const o=m.r[k];
   const wasLegacy=!!(o.ph && (!Array.isArray(o.p) || !o.p.some(Boolean)));
   if(!wasLegacy && !(Array.isArray(o.p) && o.p[slot])) return false;
-  if(!opts.skipConfirm && !confirm('Delete photo '+(slot+1)+' of 3?\n\nThis permanently erases it from this device.')) return false;
+  if(!opts.skipConfirm && !confirm('Delete photo '+(slot+1)+' of '+PHOTO_MAX+'?\n\nThis permanently erases it from this device.')) return false;
   const rObj=(b.rtus||[]).find(x=>x.k===k)||{k:k,name:k};
   const fname=photoFileName(b,rObj,slot);
   // Revoke any live preview URL for this slot
@@ -1090,7 +1092,7 @@ async function clearPhotoSlot(id,k,slot,row,bi,b,opts){
   }catch(_){}
   await eraseDevicePhoto(id,k,slot,fname);
   ensurePhotoSlots(o);
-  if(wasLegacy){o.p=[false,false,false];o.ph=false;}
+  if(wasLegacy){o.p=[false,false,false,false];o.ph=false;}
   else{o.p[slot]=false;syncPhotoFlag(o);}
   // Drop any leftover custom metadata
   if(o.files&&typeof o.files==='object') delete o.files[slot];
@@ -1108,17 +1110,18 @@ async function paintPhotoThumbs(row,id,k,o){
   const file=row.querySelector('.phfile');
   const addBtn=row.querySelector('.ph-add');
   const legacy=!!(o.ph && (!Array.isArray(o.p) || !o.p.some(Boolean)));
-  const slots=Array.isArray(o.p)?o.p:[false,false,false];
+  const slots=Array.isArray(o.p)?o.p:[false,false,false,false];
   const n=photoCount(o);
-  const full=n>=PHOTO_NEED;
+  const done=n>=PHOTO_NEED;
+  const full=n>=PHOTO_MAX;
   if(addBtn){
     addBtn.disabled=full;
-    addBtn.classList.toggle('done',full);
-    addBtn.setAttribute('aria-pressed',full);
+    addBtn.classList.toggle('done',done);
+    addBtn.setAttribute('aria-pressed',done);
   }
-  wrap.innerHTML=[0,1,2].map(i=>{
-    const has=legacy?true:!!slots[i];
-    if(has) return `<a class="ang has" data-slot="${i}" href="#" aria-label="View photo ${i+1} of 3"><span class="ph-slot">${i+1}</span><button type="button" class="ang-del" data-del="${i}" aria-label="Delete photo ${i+1}">&times;</button></a>`;
+  wrap.innerHTML=Array.from({length:PHOTO_MAX},(_,i)=>{
+    const has=legacy?(i<PHOTO_NEED):!!slots[i];
+    if(has) return `<a class="ang has" data-slot="${i}" href="#" aria-label="View photo ${i+1} of ${PHOTO_MAX}"><span class="ph-slot">${i+1}</span><button type="button" class="ang-del" data-del="${i}" aria-label="Delete photo ${i+1}">&times;</button></a>`;
     return `<span class="ang" data-slot="${i}" aria-hidden="true"><span class="ph-slot">${i+1}</span></span>`;
   }).join('');
   wrap.querySelectorAll('.ang.has').forEach(el=>{
@@ -1172,13 +1175,14 @@ function refreshRow(id,k,row,bi,b){
     const cls=n>=PHOTO_NEED?'pref':(n>0?'met':'');
     block.classList.remove('met','pref');if(cls)block.classList.add(cls);
     const hint=block.querySelector('.phint');
-    if(hint){hint.textContent=n+' of 3';hint.classList.remove('met','pref');if(cls)hint.classList.add(cls);}
+    if(hint){hint.textContent=n+' of '+PHOTO_MAX;hint.classList.remove('met','pref');if(cls)hint.classList.add(cls);}
     const addBtn=row.querySelector('.ph-add');
     if(addBtn){
-      const full=n>=PHOTO_NEED;
+      const done=n>=PHOTO_NEED;
+      const full=n>=PHOTO_MAX;
       addBtn.disabled=full;
-      addBtn.classList.toggle('done',full);
-      addBtn.setAttribute('aria-pressed',full);
+      addBtn.classList.toggle('done',done);
+      addBtn.setAttribute('aria-pressed',done);
     }
     paintPhotoThumbs(row,id,k,o);
   }
@@ -1199,7 +1203,7 @@ function exportCSV(){
   const rows=[['Business Park','Cluster','Building','RTU','UID','Detail','Sticker','Photos','Status','Notes']];
   DATA.forEach(p=>p.buildings.forEach(b=>b.rtus.forEach(r=>{
     const o=stateOf(b.id,r.k)||{s:false,c:false,ph:false,n:""};const yn=v=>v?'YES':'NO';
-    rows.push([p.property,b.cluster||'',b.name,r.name,r.uid||'',r.note,yn(o.s),(photoCount(o)?(photoCount(o)+' of 3'):'NO'),complete(o)?'COMPLETE':'',o.n||'']);
+    rows.push([p.property,b.cluster||'',b.name,r.name,r.uid||'',r.note,yn(o.s),(photoCount(o)?(photoCount(o)+' of '+PHOTO_MAX):'NO'),complete(o)?'COMPLETE':'',o.n||'']);
   })));
   const csv=rows.map(r=>r.map(c=>{c=(c==null?'':''+c);return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(',')).join('\n');
   download('QuadReal_RTU_progress.csv',csv,'text/csv');
