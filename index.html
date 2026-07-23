@@ -159,7 +159,7 @@
 </header>
 
 <div class="controls">
-  <input class="search" id="search" type="search" placeholder="Search building, RTU, or UID…" oninput="applyFilter()">
+  <input class="search" id="search" type="search" placeholder="Search anything — address, manager, RTU, UID, note, status…" oninput="applyFilter()">
   <div class="toolbar">
     <button class="tbtn solid" onclick="exportCSV()">Export CSV</button>
     <button class="tbtn" onclick="copySummary()">Copy Summary</button>
@@ -202,27 +202,32 @@ function applyFilter(){query=document.getElementById('search').value.trim().toLo
 
 function rtuName(r){return typeof r==='string'?r:(r&&r.name)||'';}
 function rtuUid(r){return typeof r==='string'?'':(r&&r.uid)||'';}
+function tokensOf(q){return (q||'').toLowerCase().trim().split(/\s+/).filter(Boolean);}
+function hayHas(hay, tokens){return tokens.every(t=>hay.includes(t));}
+function bldgHay(b){return [b.name,b.portfolio,b.manager].filter(Boolean).join(' ').toLowerCase();}
+function rtuHay(r,bi,ri){
+  const k=bi+'_'+ri; const v=state[k]||{};
+  const flags=[];
+  if(v.sticker)flags.push('sticker');
+  if(v.cove)flags.push('cove');
+  if(v.photo)flags.push('photo');
+  if(rtuDone(k))flags.push('done complete finished'); else flags.push('incomplete remaining open pending');
+  if(!rtuUid(r))flags.push('no uid missing uid unassigned'); else flags.push('has uid');
+  return [rtuName(r), rtuUid(r), v.note||'', flags.join(' ')].join(' ').toLowerCase();
+}
 function matches(b,bi){
   if(activePF!=='All'&&b.portfolio!==activePF)return false;
   if(!query)return true;
-  if(b.name.toLowerCase().includes(query))return true;
-  const q=query.replace(/\s+/g,'');
-  return b.rtus.some(r=>{
-    const n=rtuName(r).toLowerCase();
-    const u=String(rtuUid(r)).toLowerCase();
-    return n.includes(query)||(u&&(u.includes(q)||u.includes(query)));
-  });
+  const tokens=tokensOf(query);
+  if(hayHas(bldgHay(b), tokens))return true;
+  return b.rtus.some((r,ri)=>hayHas(rtuHay(r,bi,ri), tokens));
 }
-function rtuMatchesQuery(r){
+function rtuMatchesQuery(r,bi,ri){
   if(!query)return true;
-  const n=rtuName(r).toLowerCase();
-  const u=String(rtuUid(r)).toLowerCase();
-  const q=query.replace(/\s+/g,'');
-  if(n.includes(query))return true;
-  if(u&&(u.includes(q)||u.includes(query)))return true;
-  // if query is digits-only (UID search), hide non-matching RTUs inside building
-  if(/^\d{4,}$/.test(q))return false;
-  return true;
+  const tokens=tokensOf(query);
+  // building-only match (address/manager/portfolio): show all RTUs
+  if(hayHas(bldgHay(BUILDINGS[bi]), tokens))return true;
+  return hayHas(rtuHay(r,bi,ri), tokens);
 }
 
 function render(){
@@ -236,12 +241,14 @@ function render(){
     h.innerHTML=`${pf}<span class="cnt">${list.length}</span>`;app.appendChild(h);
     list.forEach(({b,bi})=>{
       shown++;
-      const uidHit=query&&/^\d{4,}$/.test(query.replace(/\s+/g,''))&&b.rtus.some(r=>String(rtuUid(r)).toLowerCase().includes(query.replace(/\s+/g,'')));
-      if(uidHit)openSet.add(bi);
-      app.appendChild(renderBldg(b,bi,uidHit));
+      const tokens=tokensOf(query);
+      const rtuHit=!!query&&b.rtus.some((r,ri)=>hayHas(rtuHay(r,bi,ri), tokens)&&!hayHas(bldgHay(b), tokens));
+      const focus=rtuHit||(query&&/^\d{4,}$/.test(query.replace(/\s+/g,'')));
+      if(focus)openSet.add(bi);
+      app.appendChild(renderBldg(b,bi,focus));
     });
   });
-  if(!shown)app.innerHTML='<div class="empty">No buildings match your search.</div>';
+  if(!shown)app.innerHTML='<div class="empty">No results match your search.</div>';
   updateHeader();
 }
 
@@ -267,11 +274,11 @@ function renderBldg(b,bi,forceOpen){
     <div class="body"></div>`;
   const body=card.querySelector('.body');
   b.rtus.forEach((r,ri)=>{
-    if(!rtuMatchesQuery(r))return;
+    if(!rtuMatchesQuery(r,bi,ri))return;
     const k=bi+'_'+ri;const v=state[k];
     const name=rtuName(r);const uid=rtuUid(r);
-    const q=query.replace(/\s+/g,'');
-    const hit=uid&&q&&uid.toLowerCase().includes(q);
+    const tokens=tokensOf(query);
+    const hit=!!query&&hayHas(rtuHay(r,bi,ri), tokens)&&!hayHas(bldgHay(b), tokens);
     const row=document.createElement('div');row.className='rtu'+(rtuDone(k)?' done':'')+(hit?' uidhit':'');row.id='row-'+k;
     const togs=STEPS.map(st=>`<button class="tog${v[st.key]?' on':''}" onclick="toggle('${k}','${st.key}',this)"><span class="ico">${st.ico}</span>${st.label}</button>`).join('');
     const uidHtml=uid?`<div class="ruid">UID ${uid}</div>`:'<div class="ruid muted">No UID</div>';
