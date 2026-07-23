@@ -330,8 +330,8 @@
 
 <script src="piexif.js"></script>
 <script>
-const APP_VER='v1.1.37';
-const BUILD=48;
+const APP_VER='v1.1.38';
+const BUILD=49;
 const CF_API='https://rtu-pictures-api.krutki11.workers.dev';
 const CF_SESSION_KEY='rtu_cf_session_token';
 function cfGetToken(){try{return sessionStorage.getItem(CF_SESSION_KEY)||'';}catch(_){return '';}}
@@ -883,8 +883,8 @@ function renderProps(){
   const ms=searching?matchSummary(list):null;
   const eyebrow=searching?'Search results':'Rooftop unit labeling';
   const sub=searching
-    ? `<b>${hits.length.toLocaleString()}</b> building${hits.length===1?'':'s'} match “${esc(q)}” · ${ms.rtus.toLocaleString()} RTU${ms.rtus===1?'':'s'}`
-    : `${filters.cluster==='all'?'Across all clusters':esc(filters.cluster)} — sticker &amp; 3 photos (up to 4) each`;
+    ? `<div class="sub"><b>${hits.length.toLocaleString()}</b> building${hits.length===1?'':'s'} match “${esc(q)}” · ${ms.rtus.toLocaleString()} RTU${ms.rtus===1?'':'s'}</div>`
+    : '';
   const capRight=searching
     ? `${hits.length.toLocaleString()} building${hits.length===1?'':'s'}`
     : `${list.length} groups`;
@@ -893,7 +893,7 @@ function renderProps(){
     <div class="quad" style="background-image:${QUAD_BG}"></div>
     <div class="eyebrow">${eyebrow}</div>
     <h1><span class="big">${ov.done}</span> of ${ov.tot.toLocaleString()} units complete</h1>
-    <div class="sub">${sub}</div>
+    ${sub}
     <div class="track"><div class="fill" style="width:${pct}%"></div></div>
     <div class="cap"><span>${pct}% complete · ${photosLabel(pics)}</span><span>${capRight}</span></div>
   </section>${controlsHTML()}`;
