@@ -150,8 +150,8 @@
   .rspec{font-size:11.5px;color:var(--faint);font-weight:600;margin-top:3px;line-height:1.4;word-break:break-word}
   .rspec b{color:var(--muted);font-weight:700}
 
-  .tasks{display:flex;flex-wrap:nowrap;gap:8px;margin-top:13px}
-  .chk{display:inline-flex;align-items:center;gap:6px;min-height:var(--tap);border:1.5px solid var(--line-2);border-radius:12px;padding:0 8px;background:#fff;font:inherit;font-weight:700;font-size:13px;color:var(--muted);cursor:pointer;transition:.12s;flex:1 1 0;min-width:0;justify-content:center}
+  .tasks{display:flex;flex-wrap:nowrap;gap:10px;margin-top:13px}
+  .chk{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;aspect-ratio:1/1;width:100%;min-height:0;border:1.5px solid var(--line-2);border-radius:14px;padding:10px 8px;background:#fff;font:inherit;font-weight:800;font-size:13px;color:var(--muted);cursor:pointer;transition:.12s;flex:1 1 0;min-width:0}
   .chk .box{width:20px;height:20px;border-radius:7px;border:2px solid var(--line-2);flex:0 0 auto;display:grid;place-items:center;color:#fff;transition:.12s}
   .chk .box svg{opacity:0;transform:scale(.4);transition:.12s}
   .chk.on{border-color:var(--good);background:var(--good-soft);color:var(--qr-midnight)}
@@ -174,7 +174,7 @@
   .chk.tk-p.done .box{background:var(--good);border-color:var(--good);color:#fff}
   .chk.tk-p:disabled{opacity:1;cursor:default}
   .angs{display:inline-flex;gap:6px;flex-wrap:wrap;align-items:center}
-  .ang{width:56px;height:56px;border-radius:11px;border:2px dashed var(--line-2);background:#fff;color:var(--faint);font:inherit;font-weight:800;font-size:12px;display:grid;place-items:center;overflow:hidden;padding:0;position:relative;text-decoration:none;flex:0 0 auto;pointer-events:none}
+  .ang{width:68px;height:68px;border-radius:12px;border:2px dashed var(--line-2);background:#fff;color:var(--faint);font:inherit;font-weight:800;font-size:12px;display:grid;place-items:center;overflow:hidden;padding:0;position:relative;text-decoration:none;flex:0 0 auto;pointer-events:none}
   .ang.has{border-style:solid;border-color:var(--qr-blue);padding:0;background:#0b1220;cursor:pointer;pointer-events:auto}
   .photos.pref .ang.has{border-color:var(--good)}
   .ang.has img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
@@ -298,8 +298,8 @@
 
 <script src="piexif.js"></script>
 <script>
-const APP_VER='v1.1.24';
-const BUILD=35;
+const APP_VER='v1.1.25';
+const BUILD=36;
 const CF_API='https://rtu-pictures-api.krutki11.workers.dev';
 const CF_SESSION_KEY='rtu_cf_session_token';
 function cfGetToken(){try{return sessionStorage.getItem(CF_SESSION_KEY)||'';}catch(_){return '';}}
@@ -593,8 +593,9 @@ async function processAuditPhoto(file, meta, max=1920, quality=0.88){
 function compressImage(file,max=1920,quality=0.82){
   return processAuditPhoto(file,{title:'RTU photo'},max,quality);
 }
-function done3(o){return (o&&o.s?1:0)+(o&&o.c?1:0)+(photosDone(o)?1:0);}
-function complete(o){return done3(o)===3;}
+function taskNeed(){return 2;} // sticker + photos
+function doneTasks(o){return (o&&o.s?1:0)+(photosDone(o)?1:0);}
+function complete(o){return doneTasks(o)===taskNeed();}
 function propStats(p){let done=0,tot=0;p.buildings.forEach(b=>{b.rtus.forEach(r=>{tot++;if(complete(stateOf(b.id,r.k)))done++;});});return{done,tot};}
 function bldStats(b){let done=0;b.rtus.forEach(r=>{if(complete(stateOf(b.id,r.k)))done++;});return{done,tot:b.rtus.length};}
 function overall(list){let done=0,tot=0;list.forEach(p=>{const s=propStats(p);done+=s.done;tot+=s.tot;});return{done,tot};}
@@ -602,9 +603,9 @@ const WARN=/redundant|do not replace|removed|disconnect|relocat/i;
 
 /* ---------------- indicators ---------------- */
 function dot(o){
-  const d=done3(o);
-  if(d===3) return `<svg class="dot" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="var(--good)"/><path d="M17 8.5l-6.5 6.5L7 11.5" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-  const C=2*Math.PI*10, on=(d/3)*C;
+  const d=doneTasks(o); const need=taskNeed();
+  if(d===need) return `<svg class="dot" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="var(--good)"/><path d="M17 8.5l-6.5 6.5L7 11.5" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const C=2*Math.PI*10, on=(d/need)*C;
   return `<svg class="dot" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
     <circle cx="12" cy="12" r="10" fill="none" stroke="var(--line-2)" stroke-width="2.2"/>
     ${d>0?`<circle cx="12" cy="12" r="10" fill="none" stroke="var(--qr-blue)" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="${on} ${C-on}" transform="rotate(-90 12 12)"/>`:''}
@@ -640,7 +641,6 @@ function rtuHay(b,r){
   const o=stateOf(b.id,r.k)||{};
   const flags=[];
   if(o.s)flags.push('sticker');
-  if(o.c)flags.push('cove');
   const pc=photoCount(o);
   if(pc)flags.push('photo photos',pc+' of 3');
   if(pc>=PHOTO_NEED)flags.push('photos done'); else if(pc)flags.push('photos incomplete');
@@ -732,7 +732,7 @@ function renderProps(){
   const eyebrow=searching?'Search results':'Rooftop unit labeling';
   const sub=searching
     ? `<b>${ms.rtus.toLocaleString()}</b> RTU${ms.rtus===1?'':'s'} match “${esc(q)}” · ${ms.buildings} building${ms.buildings===1?'':'s'} · ${ms.groups} group${ms.groups===1?'':'s'}`
-    : `${filters.cluster==='all'?'Across all clusters':esc(filters.cluster)} — sticker, Cove &amp; 3 photos each`;
+    : `${filters.cluster==='all'?'Across all clusters':esc(filters.cluster)} — sticker &amp; 3 photos each`;
   const capRight=searching
     ? `${ms.rtus.toLocaleString()} RTU match${ms.rtus===1?'':'es'}`
     : `${list.length} groups`;
@@ -850,7 +850,6 @@ function rtuHTML(b,bi,r,ri,hit){
     </div>
     <div class="tasks">
       <button class="chk tk-s${o.s?' on':''}" data-k="s" aria-pressed="${!!o.s}"><span class="box">${CHECK}</span>Sticker</button>
-      <button class="chk tk-c${o.c?' on':''}" data-k="c" aria-pressed="${!!o.c}"><span class="box">${CHECK}</span>Cove</button>
       ${photoBtnHTML(o)}
     </div>
     ${photosBlockHTML(o)}
@@ -1075,10 +1074,10 @@ function download(name,text,type){
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function exportCSV(){
-  const rows=[['Business Park','Cluster','Building','RTU','UID','Detail','Sticker','Assigned in Cove','Photos','Status','Notes']];
+  const rows=[['Business Park','Cluster','Building','RTU','UID','Detail','Sticker','Photos','Status','Notes']];
   DATA.forEach(p=>p.buildings.forEach(b=>b.rtus.forEach(r=>{
     const o=stateOf(b.id,r.k)||{s:false,c:false,ph:false,n:""};const yn=v=>v?'YES':'NO';
-    rows.push([p.property,b.cluster||'',b.name,r.name,r.uid||'',r.note,yn(o.s),yn(o.c),(photoCount(o)?(photoCount(o)+' of 3'):'NO'),complete(o)?'COMPLETE':'',o.n||'']);
+    rows.push([p.property,b.cluster||'',b.name,r.name,r.uid||'',r.note,yn(o.s),(photoCount(o)?(photoCount(o)+' of 3'):'NO'),complete(o)?'COMPLETE':'',o.n||'']);
   })));
   const csv=rows.map(r=>r.map(c=>{c=(c==null?'':''+c);return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(',')).join('\n');
   download('QuadReal_RTU_progress.csv',csv,'text/csv');
