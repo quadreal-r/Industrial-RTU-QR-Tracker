@@ -146,6 +146,7 @@
 
   .ruid{font-size:13.5px;font-weight:700;color:var(--qr-blue);margin-top:3px;letter-spacing:.02em}
   .ruid.muted{color:var(--faint);font-weight:600}
+  .raddr{font-size:11.5px;font-weight:600;color:var(--muted);margin-top:2px;line-height:1.35;letter-spacing:.01em}
   .rtu.hit{background:linear-gradient(100deg,var(--blue-soft),transparent 60%);outline:2px solid var(--qr-blue);outline-offset:-2px}
   .rtu.complete{background:linear-gradient(100deg,var(--good-soft),transparent 55%)}
   .rtop{display:flex;align-items:flex-start;gap:13px}
@@ -329,8 +330,8 @@
 
 <script src="piexif.js"></script>
 <script>
-const APP_VER='v1.1.36';
-const BUILD=47;
+const APP_VER='v1.1.37';
+const BUILD=48;
 const CF_API='https://rtu-pictures-api.krutki11.workers.dev';
 const CF_SESSION_KEY='rtu_cf_session_token';
 function cfGetToken(){try{return sessionStorage.getItem(CF_SESSION_KEY)||'';}catch(_){return '';}}
@@ -1028,9 +1029,10 @@ function photosBlockHTML(o){
 function rtuHTML(b,bi,r,ri,hit){
   const o=stateOf(b.id,r.k)||{s:false,c:false,ph:false,n:""};
   const uidLine=r.uid?`<div class="ruid">UID ${esc(r.uid)}</div>`:`<div class="ruid muted">No UID</div>`;
+  const addrLine=b.name?`<div class="raddr">${esc(b.name)}</div>`:'';
   return `<div class="rtu${complete(o)?' complete':''}${hit?' hit':''}" data-bi="${bi}" data-ri="${ri}">
     <div class="rtop">${dot(o)}
-      <div class="rmeta"><div class="rname">${esc(r.name)}</div>${uidLine}</div>
+      <div class="rmeta"><div class="rname">${esc(r.name)}</div>${uidLine}${addrLine}</div>
     </div>
     <div class="tasks">
       <button class="chk tk-s${o.s?' on':''}" data-k="s" aria-pressed="${!!o.s}"><span class="box">${CHECK}</span>Sticker</button>
