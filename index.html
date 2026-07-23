@@ -61,7 +61,7 @@
   .hero .eyebrow{font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:#DDE6FF;position:relative}
   .hero h1{font-family:"Playfair Display",serif;font-weight:700;font-size:clamp(28px,7.5vw,42px);letter-spacing:-.01em;line-height:1.02;margin:11px 0 6px;position:relative}
   .hero h1 .big{display:inline}
-  .hero .sub{font-size:13.5px;color:#E3EAFF;font-weight:500;position:relative;max-width:34ch}
+  .hero .sub{font-size:13.5px;color:#E3EAFF;font-weight:500;position:relative;max-width:46ch}.hero .sub b{color:#fff;font-weight:800}
   .hero .track{height:8px;border-radius:99px;background:rgba(255,255,255,.24);overflow:hidden;margin-top:18px;position:relative}
   .hero .track .fill{height:100%;border-radius:99px;background:#fff;transition:width .55s cubic-bezier(.2,.8,.2,1)}
   .hero .cap{display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#EAF0FF;margin-top:9px;position:relative}
@@ -363,18 +363,49 @@ function dataCardHTML(){
   </div>`;
 }
 
+function overallAll(){
+  let done=0,tot=0;
+  DATA.forEach(p=>p.buildings.forEach(b=>b.rtus.forEach(r=>{tot++;if(complete(stateOf(b.id,r.k)))done++;})));
+  return {done,tot};
+}
+function matchSummary(list){
+  const tokens=tokensOf(filters.q);
+  let buildings=0,rtus=0,done=0;
+  list.forEach(p=>{
+    const propLevel=tokens.length && hayHas(propHay(p),tokens);
+    clusterBuildings(p).forEach(b=>{
+      if(tokens.length && !propLevel && !bldgMatches(b,tokens)) return;
+      let shown=0;
+      b.rtus.forEach(r=>{
+        if(tokens.length && !propLevel && !hayHas(bldgHay(b),tokens) && !rtuMatches(b,r,tokens)) return;
+        shown++;rtus++;
+        if(complete(stateOf(b.id,r.k))) done++;
+      });
+      if(shown || !tokens.length || propLevel || hayHas(bldgHay(b),tokens)) buildings++;
+    });
+  });
+  return {groups:list.length,buildings,rtus,done};
+}
 function renderProps(){
   const list=visibleProps();
-  const ov=list.reduce((a,p)=>{const s=propStatsFiltered(p);a.done+=s.done;a.tot+=s.tot;return a;},{done:0,tot:0});
+  const ov=overallAll();
   const pct=ov.tot?Math.round(ov.done/ov.tot*100):0;
+  const searching=!!filters.q.trim();
+  const ms=searching?matchSummary(list):null;
+  const sub=searching
+    ? `Search “${esc(filters.q.trim())}” — <b>${ms.rtus.toLocaleString()}</b> RTU${ms.rtus===1?'':'s'} · ${ms.buildings} building${ms.buildings===1?'':'s'} · ${ms.groups} group${ms.groups===1?'':'s'}${ms.rtus?` · ${ms.done} done`:''}`
+    : `${filters.cluster==='all'?'Across all clusters':esc(filters.cluster)} — sticker, Cove &amp; a photo each`;
+  const capRight=searching
+    ? `${ms.rtus.toLocaleString()} match${ms.rtus===1?'':'es'}`
+    : `${list.length} groups`;
   let html=`<section class="hero">
     <div class="app-ver" aria-hidden="true">v1.1.1</div>
     <div class="quad" style="background-image:${QUAD_BG}"></div>
     <div class="eyebrow">Rooftop unit labeling</div>
     <h1><span class="big">${ov.done}</span> of ${ov.tot.toLocaleString()} units complete</h1>
-    <div class="sub">${filters.cluster==='all'?'Across all clusters':esc(filters.cluster)} — sticker, Cove &amp; a photo each</div>
+    <div class="sub">${sub}</div>
     <div class="track"><div class="fill" style="width:${pct}%"></div></div>
-    <div class="cap"><span>${pct}% complete</span><span>${list.length} groups</span></div>
+    <div class="cap"><span>${pct}% complete</span><span>${capRight}</span></div>
   </section>${controlsHTML()}`;
 
   if(!list.length){
@@ -398,15 +429,22 @@ function renderProps(){
 }
 
 function renderBuildings(){
-  const p=DATA[view.pi];const s=propStatsFiltered(p);const pct=s.tot?Math.round(s.done/s.tot*100):0;
+  const p=DATA[view.pi];
+  const s=propStats(p); // full portfolio totals — search must not shrink these
+  const pct=s.tot?Math.round(s.done/s.tot*100):0;
+  const searching=!!filters.q.trim();
+  const ms=searching?matchSummary([p]):null;
+  const eyebrow=searching
+    ? `Search “${esc(filters.q.trim())}” — ${ms.rtus} RTU${ms.rtus===1?'':'s'} · ${ms.buildings} building${ms.buildings===1?'':'s'}`
+    : `${p.code?esc(p.code)+' · ':''}${filters.cluster==='all'?esc([...new Set(p.buildings.map(b=>b.cluster))].length)+' clusters':esc(filters.cluster)} · ${clusterBuildings(p).length} buildings`;
   let html=`<nav class="crumb"><button id="back"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>All groups</button></nav>
   <section class="hero">
     <div class="app-ver" aria-hidden="true">v1.1.1</div>
     <div class="quad" style="background-image:${QUAD_BG}"></div>
-    <div class="eyebrow">${p.code?esc(p.code)+' · ':''}${filters.cluster==='all'?esc([...new Set(p.buildings.map(b=>b.cluster))].length)+' clusters':esc(filters.cluster)} · ${clusterBuildings(p).length} buildings</div>
+    <div class="eyebrow">${eyebrow}</div>
     <h1>${esc(p.property)}</h1>
     <div class="track"><div class="fill" style="width:${pct}%"></div></div>
-    <div class="cap"><span>${s.done}/${s.tot} units complete</span><span>${pct}%</span></div>
+    <div class="cap"><span>${s.done}/${s.tot} units complete</span><span>${searching?ms.rtus+' match'+(ms.rtus===1?'':'es'):pct+'%'}</span></div>
   </section>
   ${controlsHTML()}
   <div class="plist" style="margin-top:12px">`;
