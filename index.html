@@ -154,13 +154,13 @@
   .rspec{font-size:11.5px;color:var(--faint);font-weight:600;margin-top:3px;line-height:1.4;word-break:break-word}
   .rspec b{color:var(--muted);font-weight:700}
 
-  .tasks{display:flex;flex-wrap:nowrap;gap:10px;margin-top:13px}
-  .chk{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;aspect-ratio:1/1;width:100%;min-height:0;border:1.5px solid var(--line-2);border-radius:14px;padding:10px 8px;background:#fff;font:inherit;font-weight:800;font-size:13px;color:var(--muted);cursor:pointer;transition:.12s;flex:1 1 0;min-width:0}
-  .chk .box{width:20px;height:20px;border-radius:7px;border:2px solid var(--line-2);flex:0 0 auto;display:grid;place-items:center;color:#fff;transition:.12s}
-  .chk .box svg{opacity:0;transform:scale(.4);transition:.12s}
+  .tasks{display:flex;flex-wrap:nowrap;justify-content:center;align-items:stretch;gap:18px;margin-top:13px;padding:0 6%}
+  .chk{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;aspect-ratio:1/1;width:calc((100% - 18px) / 2 * 0.8);max-width:148px;min-width:96px;min-height:0;border:1.5px solid var(--line-2);border-radius:14px;padding:12px 8px;background:#fff;font:inherit;font-weight:800;font-size:15.5px;letter-spacing:.01em;color:var(--muted);cursor:pointer;transition:.12s;flex:0 1 auto}
+  .chk .box{width:34px;height:34px;border-radius:11px;border:2px solid var(--line-2);flex:0 0 auto;display:grid;place-items:center;color:#fff;transition:.12s}
+  .chk .box svg{opacity:0;transform:scale(.45);transition:.12s;width:20px;height:20px}
   .chk.on{border-color:var(--good);background:var(--good-soft);color:var(--qr-midnight)}
   .chk.on .box{background:var(--good);border-color:var(--good)}
-  .chk.on .box svg{opacity:1;transform:scale(1)}
+  .chk.on .box svg{opacity:1;transform:scale(1);width:20px;height:20px}
   .chk:active{transform:translateY(1px)}
   .chk:focus-visible{outline:2.5px solid var(--qr-blue);outline-offset:2px}
 
@@ -173,7 +173,7 @@
   .photos.met .lab .box{border-color:var(--qr-blue);color:var(--qr-blue)}
   .photos.pref .lab .box{border-color:var(--good);background:var(--good);color:#fff}
   .chk.tk-p .box{color:var(--muted);background:transparent}
-  .chk.tk-p .box svg{opacity:1;transform:scale(1)}
+  .chk.tk-p .box svg{opacity:1;transform:scale(1);width:22px;height:22px}
   .chk.tk-p.done{border-color:var(--good);background:var(--good-soft);color:var(--qr-midnight)}
   .chk.tk-p.done .box{background:var(--good);border-color:var(--good);color:#fff}
   .chk.tk-p:disabled{opacity:1;cursor:default}
@@ -226,7 +226,7 @@
 
   @media (min-width:600px){
     .search{flex:1 1 240px}
-    .chk{flex:1 1 0;min-width:0}
+    .chk{flex:0 1 auto;width:calc((100% - 18px) / 2 * 0.8);max-width:148px}
     .photos{flex:1 1 100%}
   }
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -312,8 +312,8 @@
 
 <script src="piexif.js"></script>
 <script>
-const APP_VER='v1.1.27';
-const BUILD=38;
+const APP_VER='v1.1.28';
+const BUILD=39;
 const CF_API='https://rtu-pictures-api.krutki11.workers.dev';
 const CF_SESSION_KEY='rtu_cf_session_token';
 function cfGetToken(){try{return sessionStorage.getItem(CF_SESSION_KEY)||'';}catch(_){return '';}}
@@ -700,8 +700,8 @@ function pring(done,tot){
     <text x="19" y="20" text-anchor="middle" dominant-baseline="middle" font-size="11" font-weight="800" fill="var(--qr-midnight)" font-family="Manrope,sans-serif">${Math.round(pct*100)}</text>
   </svg>`;
 }
-const CHECK=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`;
-const CAM=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
+const CHECK=`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`;
+const CAM=`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
 
 /* ---------------- state ---------------- */
 let view={level:'props',pi:null};
