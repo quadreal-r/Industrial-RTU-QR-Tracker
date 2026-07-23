@@ -298,8 +298,8 @@
 
 <script src="piexif.js"></script>
 <script>
-const APP_VER='v1.1.25';
-const BUILD=36;
+const APP_VER='v1.1.26';
+const BUILD=37;
 const CF_API='https://rtu-pictures-api.krutki11.workers.dev';
 const CF_SESSION_KEY='rtu_cf_session_token';
 function cfGetToken(){try{return sessionStorage.getItem(CF_SESSION_KEY)||'';}catch(_){return '';}}
@@ -626,7 +626,7 @@ const CAM=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="c
 
 /* ---------------- state ---------------- */
 let view={level:'props',pi:null};
-let filters={q:'',cluster:'all',incompleteOnly:false};
+let filters={q:'',cluster:'all',incompleteOnly:false,completedOnly:false};
 DATA.forEach((p,i)=>p._i=i);
 const CLUSTERS=[...new Set(DATA.flatMap(p=>p.buildings.map(b=>b.cluster)).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
 const app=document.getElementById('app');
@@ -675,6 +675,7 @@ function visibleProps(){
       if(!bldgs.some(b=>bldgMatches(b,tokens))) return false;
     }
     if(filters.incompleteOnly){const s=propStatsFiltered(p);if(s.tot>0&&s.done===s.tot) return false;}
+    if(filters.completedOnly){const s=propStatsFiltered(p);if(s.done===0) return false;}
     return true;
   });
 }
@@ -685,6 +686,7 @@ function controlsHTML(){
       <input id="q" type="search" placeholder="Search anything — address, cluster, RTU, UID, note…" value="${esc(filters.q).replace(/"/g,'&quot;')}" autocomplete="off" enterkeyhint="search"></label>
     <select class="mgr" id="cluster" aria-label="Filter by cluster">${opts}</select>
     <button class="toggle${filters.incompleteOnly?' on':''}" id="inc" role="switch" aria-checked="${filters.incompleteOnly}"><span class="sw"></span>Incomplete only</button>
+    <button class="toggle${filters.completedOnly?' on':''}" id="comp" role="switch" aria-checked="${filters.completedOnly}"><span class="sw"></span>Completed only</button>
   </div>`;
 }
 function dataCardHTML(){
@@ -799,8 +801,12 @@ function renderBuildings(){
     const expanded=rtuHit?'true':'false';
     const rows=b.rtus.map((r,ri)=>{
       if(tokens.length && !propLevel && !hayHas(bldgHay(b),tokens) && !rtuMatches(b,r,tokens)) return '';
+      const o=stateOf(b.id,r.k);
+      if(filters.incompleteOnly && complete(o)) return '';
+      if(filters.completedOnly && !complete(o)) return '';
       return rtuHTML(b,bi,r,ri,tokens.length && !propLevel && !hayHas(bldgHay(b),tokens) && rtuMatches(b,r,tokens));
     }).join('');
+    if(!rows.replace(/\s/g,'')) return;
     html+=`<div class="bld${openAttr}" data-bi="${bi}">
       <button class="bhead" aria-expanded="${expanded}">
         <div><div class="bnm">${esc(b.name)}</div><div class="bsub">${esc(b.cluster||'')} · ${b.rtus.length} rooftop unit${b.rtus.length>1?'s':''}</div></div>
@@ -862,7 +868,8 @@ function wireControls(inBuilding){
   const q=document.getElementById('q');
   if(q) q.oninput=e=>{filters.q=e.target.value;const pos=q.selectionStart;render();const nq=document.getElementById('q');if(nq){nq.focus();try{nq.setSelectionRange(pos,pos);}catch(_){}}};
   const cl=document.getElementById('cluster');if(cl)cl.onchange=e=>{filters.cluster=e.target.value;if(inBuilding){view={level:'props',pi:null};}render();};
-  const inc=document.getElementById('inc');if(inc)inc.onclick=()=>{filters.incompleteOnly=!filters.incompleteOnly;render();};
+  const inc=document.getElementById('inc');if(inc)inc.onclick=()=>{filters.incompleteOnly=!filters.incompleteOnly;if(filters.incompleteOnly)filters.completedOnly=false;render();};
+  const comp=document.getElementById('comp');if(comp)comp.onclick=()=>{filters.completedOnly=!filters.completedOnly;if(filters.completedOnly)filters.incompleteOnly=false;render();};
 }
 function wireData(){
   const exp=document.getElementById('exp');if(exp)exp.onclick=exportCSV;
