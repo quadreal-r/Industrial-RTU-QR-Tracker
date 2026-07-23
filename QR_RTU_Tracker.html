@@ -315,8 +315,8 @@
 
 <script src="piexif.js"></script>
 <script>
-const APP_VER='v1.1.31';
-const BUILD=42;
+const APP_VER='v1.1.32';
+const BUILD=43;
 const CF_API='https://rtu-pictures-api.krutki11.workers.dev';
 const CF_SESSION_KEY='rtu_cf_session_token';
 function cfGetToken(){try{return sessionStorage.getItem(CF_SESSION_KEY)||'';}catch(_){return '';}}
@@ -645,6 +645,7 @@ async function processAuditPhoto(file, meta, max=1920, quality=0.88){
   const title=(meta&&meta.title)||'RTU photo';
   const address=(meta&&meta.address)||'';
   const rtu=(meta&&meta.rtu)||'';
+  const uid=(meta&&meta.uid)||'';
   const dataUrl=await readFileAsDataURL(file);
   let gps=null;
   if(typeof piexif!=='undefined'){
@@ -658,7 +659,7 @@ async function processAuditPhoto(file, meta, max=1920, quality=0.88){
   const ctx=c.getContext('2d');
   ctx.drawImage(src,0,0,w,hh);
   if(src.close) try{src.close();}catch(_){}
-  const stamp=[address,rtu,displayDateString(now)].filter(Boolean).join(' · ');
+  const stamp=[address,rtu,displayDateString(now),uid?('UID '+uid):''].filter(Boolean).join(' · ');
   drawPhotoOverlay(ctx,w,hh,[stamp]);
   let jpegData=c.toDataURL('image/jpeg', quality);
   if(typeof piexif!=='undefined'){
@@ -1047,6 +1048,7 @@ function wireRtu(){
           title,
           address:b.name||'',
           rtu:rtuPhotoLabel(r),
+          uid:r.uid||'',
           b,r,slot
         });
         await photoPut(photoSlotKey(id,k,slot),blob);
