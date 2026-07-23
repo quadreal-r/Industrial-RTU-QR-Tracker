@@ -315,8 +315,8 @@
 
 <script src="piexif.js"></script>
 <script>
-const APP_VER='v1.1.34';
-const BUILD=45;
+const APP_VER='v1.1.35';
+const BUILD=46;
 const CF_API='https://rtu-pictures-api.krutki11.workers.dev';
 const CF_SESSION_KEY='rtu_cf_session_token';
 function cfGetToken(){try{return sessionStorage.getItem(CF_SESSION_KEY)||'';}catch(_){return '';}}
@@ -726,9 +726,29 @@ const esc=s=>(''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt
 
 
 function tokensOf(q){return (q||'').toLowerCase().trim().split(/\s+/).filter(Boolean);}
-function hayHas(hay,tokens){return tokens.every(t=>hay.includes(t));}
+/** Match tokens against words (prefix) so "150 C" hits "150 Courtneypark". */
+function hayHas(hay,tokens){
+  if(!tokens.length) return true;
+  const h=(''+(hay||'')).toLowerCase();
+  const words=h.split(/[^a-z0-9]+/).filter(Boolean);
+  return tokens.every(raw=>{
+    const t=(''+raw).toLowerCase();
+    if(!t) return true;
+    if(words.some(w=>w.startsWith(t))) return true;
+    // Non-numeric tokens may match mid-string (notes, hyphenated ids)
+    if(t.length>=3 && !/^\d+$/.test(t) && h.includes(t)) return true;
+    return false;
+  });
+}
 function propHay(p){return [p.property,p.code,p.manager,...new Set(p.buildings.map(b=>b.cluster))].filter(Boolean).join(' ').toLowerCase();}
-function bldgHay(b){return [b.name,b.id,b.cluster].filter(Boolean).join(' ').toLowerCase();}
+function bldgHay(b){
+  const name=b.name||'';
+  const parts=[name,b.id,b.cluster];
+  // Courtney ↔ Cortney so either spelling finds the building
+  if(/courtney/i.test(name)) parts.push(name.replace(/courtney/ig,'cortney'));
+  if(/cortney/i.test(name)) parts.push(name.replace(/cortney/ig,'courtney'));
+  return parts.filter(Boolean).join(' ').toLowerCase();
+}
 function rtuHay(b,r){
   const o=stateOf(b.id,r.k)||{};
   const flags=[];
@@ -738,7 +758,7 @@ function rtuHay(b,r){
   if(pc>=PHOTO_NEED)flags.push('photos done'); else if(pc)flags.push('photos incomplete');
   if(complete(o))flags.push('done complete finished'); else flags.push('incomplete remaining open pending');
   if(r.uid)flags.push('has uid'); else flags.push('no uid missing uid unassigned');
-  return [r.name,r.k,r.note,r.uid,o.n||'',flags.join(' ')].join(' ').toLowerCase();
+  return [r.name,r.k,r.note,r.uid,o.n||'',flags.join(' '),bldgHay(b)].join(' ').toLowerCase();
 }
 function rtuMatches(b,r,tokens){return hayHas(rtuHay(b,r),tokens);}
 function bldgMatches(b,tokens){
@@ -748,6 +768,24 @@ function bldgMatches(b,tokens){
 function propMatches(p,tokens){
   if(hayHas(propHay(p),tokens))return true;
   return p.buildings.some(b=>bldgMatches(b,tokens));
+}
+/** Flat building hits for search results (address-first). */
+function matchingBuildings(list){
+  const tokens=tokensOf(filters.q);
+  const out=[];
+  list.forEach(p=>{
+    const propHit=tokens.length && hayHas(propHay(p),tokens);
+    const bldgs=clusterBuildings(p);
+    p.buildings.forEach((b,bi)=>{
+      if(!bldgs.includes(b)) return;
+      if(tokens.length && !propHit && !bldgMatches(b,tokens)) return;
+      const st=bldStats(b);
+      if(filters.incompleteOnly && st.tot>0 && st.done===st.tot) return;
+      if(filters.completedOnly && st.done===0) return;
+      out.push({p,bi,b,st});
+    });
+  });
+  return out;
 }
 
 function clusterBuildings(p){
@@ -802,12 +840,13 @@ function overallAll(){
 function matchSummary(list){
   const tokens=tokensOf(filters.q);
   let buildings=0,rtus=0,done=0;
-  // Count only RTUs that themselves match the query (not every unit in a matching building)
   list.forEach(p=>{
+    const propHit=tokens.length && hayHas(propHay(p),tokens);
     clusterBuildings(p).forEach(b=>{
+      const bHit=propHit || (tokens.length && hayHas(bldgHay(b),tokens));
       let shown=0;
       b.rtus.forEach(r=>{
-        if(tokens.length && !rtuMatches(b,r,tokens)) return;
+        if(tokens.length && !bHit && !rtuMatches(b,r,tokens)) return;
         shown++;rtus++;
         if(complete(stateOf(b.id,r.k))) done++;
       });
@@ -823,13 +862,14 @@ function renderProps(){
   const pct=ov.tot?Math.round(ov.done/ov.tot*100):0;
   const q=filters.q.trim();
   const searching=!!q;
+  const hits=searching?matchingBuildings(list):[];
   const ms=searching?matchSummary(list):null;
   const eyebrow=searching?'Search results':'Rooftop unit labeling';
   const sub=searching
-    ? `<b>${ms.rtus.toLocaleString()}</b> RTU${ms.rtus===1?'':'s'} match “${esc(q)}” · ${ms.buildings} building${ms.buildings===1?'':'s'} · ${ms.groups} group${ms.groups===1?'':'s'}`
+    ? `<b>${hits.length.toLocaleString()}</b> building${hits.length===1?'':'s'} match “${esc(q)}” · ${ms.rtus.toLocaleString()} RTU${ms.rtus===1?'':'s'}`
     : `${filters.cluster==='all'?'Across all clusters':esc(filters.cluster)} — sticker &amp; 3 photos (up to 4) each`;
   const capRight=searching
-    ? `${ms.rtus.toLocaleString()} RTU match${ms.rtus===1?'':'es'}`
+    ? `${hits.length.toLocaleString()} building${hits.length===1?'':'s'}`
     : `${list.length} groups`;
   let html=`<section class="hero">
     <div class="app-ver" aria-hidden="true">${APP_VER}</div>
@@ -841,24 +881,43 @@ function renderProps(){
     <div class="cap"><span>${pct}% complete · ${photosLabel(pics)}</span><span>${capRight}</span></div>
   </section>${controlsHTML()}`;
 
-  if(!list.length){
+  if(searching?!hits.length:!list.length){
     html+=`<div class="empty"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg><h3>Nothing matches</h3><p>Clear the search or cluster filter.</p></div>`+dataCardHTML();
     app.innerHTML=html;wireControls();wireData();return;
   }
   html+='<div class="plist">';
-  list.forEach(p=>{
-    const s=propStatsFiltered(p);const full=s.tot>0&&s.done===s.tot;
-    html+=`<button class="prow" data-pi="${p._i}">
-      ${pring(s.done,s.tot)}
-      <span class="pinfo"><span class="nm">${esc(p.property)}</span>
-        <span class="meta">${p.code?esc(p.code)+' · ':''}${esc([...new Set(clusterBuildings(p).map(b=>b.cluster))].join(', ')||'—')} · ${clusterBuildings(p).length} buildings · ${s.tot} RTUs</span></span>
-      <span class="pcount${full?' full':''}"><b>${s.done}/${s.tot}</b>done</span>
-      <svg class="chev" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
-    </button>`;
-  });
+  if(searching){
+    hits.forEach(({p,bi,b,st})=>{
+      const full=st.tot>0&&st.done===st.tot;
+      html+=`<button class="prow" data-pi="${p._i}" data-bi="${bi}">
+        ${pring(st.done,st.tot)}
+        <span class="pinfo"><span class="nm">${esc(b.name)}</span>
+          <span class="meta">${esc(p.property)}${b.cluster?' · '+esc(b.cluster):''} · ${st.tot} RTU${st.tot===1?'':'s'}</span></span>
+        <span class="pcount${full?' full':''}"><b>${st.done}/${st.tot}</b>done</span>
+        <svg class="chev" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </button>`;
+    });
+  }else{
+    list.forEach(p=>{
+      const s=propStatsFiltered(p);const full=s.tot>0&&s.done===s.tot;
+      html+=`<button class="prow" data-pi="${p._i}">
+        ${pring(s.done,s.tot)}
+        <span class="pinfo"><span class="nm">${esc(p.property)}</span>
+          <span class="meta">${p.code?esc(p.code)+' · ':''}${esc([...new Set(clusterBuildings(p).map(b=>b.cluster))].join(', ')||'—')} · ${clusterBuildings(p).length} buildings · ${s.tot} RTUs</span></span>
+        <span class="pcount${full?' full':''}"><b>${s.done}/${s.tot}</b>done</span>
+        <svg class="chev" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </button>`;
+    });
+  }
   html+='</div>'+dataCardHTML()+'<footer>QuadReal Property Group · RTU QR Code Program<br>Build '+BUILD+' · saves on device</footer>';
   app.innerHTML=html;wireControls();wireData();
-  app.querySelectorAll('.prow').forEach(el=>el.onclick=()=>{view={level:'buildings',pi:+el.dataset.pi};render();window.scrollTo(0,0);});
+  app.querySelectorAll('.prow').forEach(el=>el.onclick=()=>{
+    const pi=+el.dataset.pi;
+    const bi=el.dataset.bi!=null?+el.dataset.bi:null;
+    view={level:'buildings',pi,focusBi:bi};
+    render();
+    window.scrollTo(0,0);
+  });
 }
 
 function renderBuildings(){
@@ -886,19 +945,22 @@ function renderBuildings(){
   const tokens=tokensOf(filters.q);
   const propLevel=tokens.length && hayHas(propHay(p),tokens);
   const bldgs=clusterBuildings(p);
+  const focusBi=view.focusBi;
   p.buildings.forEach((b,bi)=>{
     if(!bldgs.includes(b)) return;
     if(tokens.length && !propLevel && !bldgMatches(b,tokens)) return;
     const c=bldStats(b);
-    const rtuHit=tokens.length && !propLevel && !hayHas(bldgHay(b),tokens) && b.rtus.some(r=>rtuMatches(b,r,tokens));
-    const openAttr=rtuHit?' open':'';
-    const expanded=rtuHit?'true':'false';
+    const bldgHit=tokens.length && hayHas(bldgHay(b),tokens);
+    const rtuHit=tokens.length && !propLevel && !bldgHit && b.rtus.some(r=>rtuMatches(b,r,tokens));
+    const forceOpen=focusBi===bi || bldgHit || rtuHit;
+    const openAttr=forceOpen?' open':'';
+    const expanded=forceOpen?'true':'false';
     const rows=b.rtus.map((r,ri)=>{
-      if(tokens.length && !propLevel && !hayHas(bldgHay(b),tokens) && !rtuMatches(b,r,tokens)) return '';
+      if(tokens.length && !propLevel && !bldgHit && !rtuMatches(b,r,tokens)) return '';
       const o=stateOf(b.id,r.k);
       if(filters.incompleteOnly && complete(o)) return '';
       if(filters.completedOnly && !complete(o)) return '';
-      return rtuHTML(b,bi,r,ri,tokens.length && !propLevel && !hayHas(bldgHay(b),tokens) && rtuMatches(b,r,tokens));
+      return rtuHTML(b,bi,r,ri,tokens.length && !propLevel && !bldgHit && rtuMatches(b,r,tokens));
     }).join('');
     if(!rows.replace(/\s/g,'')) return;
     html+=`<div class="bld${openAttr}" data-bi="${bi}">
@@ -912,10 +974,15 @@ function renderBuildings(){
   });
   html+='</div><footer>QuadReal Property Group · RTU QR Code Program<br>Build '+BUILD+' · saves on device</footer>';
   app.innerHTML=html;
+  view.focusBi=null;
   document.getElementById('back').onclick=()=>{view={level:'props',pi:null};render();window.scrollTo(0,0);};
   wireControls(true);
   app.querySelectorAll('.bhead').forEach(btn=>btn.onclick=()=>{const bld=btn.closest('.bld');const open=bld.classList.toggle('open');btn.setAttribute('aria-expanded',open);});
   wireRtu();
+  if(focusBi!=null){
+    const el=app.querySelector('.bld[data-bi="'+focusBi+'"]');
+    if(el) try{el.scrollIntoView({block:'start',behavior:'smooth'});}catch(_){}
+  }
 }
 
 function photoBtnHTML(o){
