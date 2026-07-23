@@ -315,8 +315,8 @@
 
 <script src="piexif.js"></script>
 <script>
-const APP_VER='v1.1.33';
-const BUILD=44;
+const APP_VER='v1.1.34';
+const BUILD=45;
 const CF_API='https://rtu-pictures-api.krutki11.workers.dev';
 const CF_SESSION_KEY='rtu_cf_session_token';
 function cfGetToken(){try{return sessionStorage.getItem(CF_SESSION_KEY)||'';}catch(_){return '';}}
@@ -680,6 +680,17 @@ function complete(o){return doneTasks(o)===taskNeed();}
 function propStats(p){let done=0,tot=0;p.buildings.forEach(b=>{b.rtus.forEach(r=>{tot++;if(complete(stateOf(b.id,r.k)))done++;});});return{done,tot};}
 function bldStats(b){let done=0;b.rtus.forEach(r=>{if(complete(stateOf(b.id,r.k)))done++;});return{done,tot:b.rtus.length};}
 function overall(list){let done=0,tot=0;list.forEach(p=>{const s=propStats(p);done+=s.done;tot+=s.tot;});return{done,tot};}
+function photoCountAll(){
+  let n=0;
+  DATA.forEach(p=>p.buildings.forEach(b=>b.rtus.forEach(r=>{n+=photoCount(stateOf(b.id,r.k));})));
+  return n;
+}
+function propPhotoCount(p){
+  let n=0;
+  p.buildings.forEach(b=>b.rtus.forEach(r=>{n+=photoCount(stateOf(b.id,r.k));}));
+  return n;
+}
+function photosLabel(n){return n.toLocaleString()+' photo'+(n===1?'':'s');}
 const WARN=/redundant|do not replace|removed|disconnect|relocat/i;
 
 /* ---------------- indicators ---------------- */
@@ -808,6 +819,7 @@ function matchSummary(list){
 function renderProps(){
   const list=visibleProps();
   const ov=overallAll();
+  const pics=photoCountAll();
   const pct=ov.tot?Math.round(ov.done/ov.tot*100):0;
   const q=filters.q.trim();
   const searching=!!q;
@@ -826,7 +838,7 @@ function renderProps(){
     <h1><span class="big">${ov.done}</span> of ${ov.tot.toLocaleString()} units complete</h1>
     <div class="sub">${sub}</div>
     <div class="track"><div class="fill" style="width:${pct}%"></div></div>
-    <div class="cap"><span>${pct}% complete</span><span>${capRight}</span></div>
+    <div class="cap"><span>${pct}% complete · ${photosLabel(pics)}</span><span>${capRight}</span></div>
   </section>${controlsHTML()}`;
 
   if(!list.length){
@@ -852,6 +864,7 @@ function renderProps(){
 function renderBuildings(){
   const p=DATA[view.pi];
   const s=propStats(p); // full portfolio totals — search must not shrink these
+  const pics=propPhotoCount(p);
   const pct=s.tot?Math.round(s.done/s.tot*100):0;
   const q=filters.q.trim();
   const searching=!!q;
@@ -866,7 +879,7 @@ function renderBuildings(){
     <div class="eyebrow">${eyebrow}</div>
     <h1>${esc(p.property)}</h1>
     <div class="track"><div class="fill" style="width:${pct}%"></div></div>
-    <div class="cap"><span>${s.done}/${s.tot} units complete</span><span>${searching?ms.rtus+' match'+(ms.rtus===1?'':'es'):pct+'%'}</span></div>
+    <div class="cap"><span>${s.done}/${s.tot} units complete · ${photosLabel(pics)}</span><span>${searching?ms.rtus+' match'+(ms.rtus===1?'':'es'):pct+'%'}</span></div>
   </section>
   ${controlsHTML()}
   <div class="plist" style="margin-top:12px">`;
@@ -1188,6 +1201,12 @@ function refreshRow(id,k,row,bi,b){
   }
   row.classList.toggle('complete',complete(o));
   const c=bldStats(b);const bld=row.closest('.bld');bld.querySelector('.bcount').innerHTML=`<b>${c.done}</b>/${c.tot}`;
+  const heroCap=document.querySelector('.hero .cap span');
+  if(heroCap && view.level==='buildings' && DATA[view.pi]){
+    const p=DATA[view.pi];
+    const s=propStats(p);
+    heroCap.textContent=s.done+'/'+s.tot+' units complete · '+photosLabel(propPhotoCount(p));
+  }
 }
 
 let toastT;
