@@ -93,14 +93,15 @@
   .hero .cap{display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#EAF0FF;margin-top:9px;position:relative}
 
   /* ---- Controls ---- */
-  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:16px 0 4px}
-  .search{flex:1 1 100%;position:relative}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin:16px 0 4px}
+  .search{flex:1 1 100%;position:relative;min-width:0}
   .search input{width:100%;height:var(--tap);border:1.5px solid var(--line-2);border-radius:13px;padding:0 14px 0 42px;font:inherit;font-size:16px;background:#fff;color:var(--ink)}
   .search input:focus{outline:none;border-color:var(--qr-blue);box-shadow:0 0 0 4px var(--blue-soft)}
   .search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--faint)}
-  select.mgr{flex:1 1 auto;height:var(--tap);border:1.5px solid var(--line-2);border-radius:13px;padding:0 34px 0 14px;font:inherit;font-size:16px;font-weight:600;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666D82' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;color:var(--ink);-webkit-appearance:none;appearance:none}
+  select.mgr{flex:1 1 100%;height:var(--tap);border:1.5px solid var(--line-2);border-radius:13px;padding:0 34px 0 14px;font:inherit;font-size:16px;font-weight:600;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666D82' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;color:var(--ink);-webkit-appearance:none;appearance:none;min-width:0}
   select.mgr:focus{outline:none;border-color:var(--qr-blue);box-shadow:0 0 0 4px var(--blue-soft)}
-  .toggle{display:inline-flex;align-items:center;gap:9px;height:var(--tap);border:1.5px solid var(--line-2);border-radius:13px;padding:0 15px;background:#fff;font-weight:700;font-size:14px;cursor:pointer;color:var(--ink);user-select:none;-webkit-user-select:none}
+  .togrow{display:flex;gap:8px;flex:1 1 100%;min-width:0}
+  .toggle{display:inline-flex;align-items:center;justify-content:center;gap:9px;flex:1 1 0;height:var(--tap);border:1.5px solid var(--line-2);border-radius:13px;padding:0 15px;background:#fff;font-weight:700;font-size:14px;cursor:pointer;color:var(--ink);user-select:none;-webkit-user-select:none;white-space:nowrap;min-width:0}
   .toggle .sw{width:34px;height:20px;border-radius:99px;background:var(--line-2);position:relative;transition:background .2s;flex:0 0 auto}
   .toggle .sw::after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.22)}
   .toggle.on .sw{background:var(--qr-blue)}
@@ -226,8 +227,21 @@
   .saved{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(16px);background:var(--qr-midnight);color:#fff;padding:10px 18px;border-radius:99px;font-size:13px;font-weight:700;box-shadow:0 10px 28px -8px rgba(23,48,115,.55);opacity:0;pointer-events:none;transition:.24s;z-index:60;display:flex;align-items:center;gap:8px}
   .saved.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-  @media (min-width:600px){
-    .search{flex:1 1 240px}
+  @media (min-width:720px){
+    .controls{
+      display:grid;
+      grid-template-columns:minmax(0,1.6fr) minmax(150px,200px) max-content max-content;
+      gap:10px;
+      align-items:stretch;
+    }
+    .search{flex:unset}
+    select.mgr{flex:unset;width:100%}
+    .togrow{display:contents}
+    .toggle{flex:unset}
+    .chk{flex:1 1 0;min-width:0}
+    .photos{flex:1 1 100%}
+  }
+  @media (min-width:600px) and (max-width:719px){
     .chk{flex:1 1 0;min-width:0}
     .photos{flex:1 1 100%}
   }
@@ -315,8 +329,8 @@
 
 <script src="piexif.js"></script>
 <script>
-const APP_VER='v1.1.35';
-const BUILD=46;
+const APP_VER='v1.1.36';
+const BUILD=47;
 const CF_API='https://rtu-pictures-api.krutki11.workers.dev';
 const CF_SESSION_KEY='rtu_cf_session_token';
 function cfGetToken(){try{return sessionStorage.getItem(CF_SESSION_KEY)||'';}catch(_){return '';}}
@@ -815,8 +829,10 @@ function controlsHTML(){
     <label class="search"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       <input id="q" type="search" placeholder="Search anything — address, cluster, RTU, UID, note…" value="${esc(filters.q).replace(/"/g,'&quot;')}" autocomplete="off" enterkeyhint="search"></label>
     <select class="mgr" id="cluster" aria-label="Filter by cluster">${opts}</select>
-    <button class="toggle${filters.incompleteOnly?' on':''}" id="inc" role="switch" aria-checked="${filters.incompleteOnly}"><span class="sw"></span>Incomplete only</button>
-    <button class="toggle${filters.completedOnly?' on':''}" id="comp" role="switch" aria-checked="${filters.completedOnly}"><span class="sw"></span>Completed only</button>
+    <div class="togrow">
+      <button class="toggle${filters.incompleteOnly?' on':''}" id="inc" role="switch" aria-checked="${filters.incompleteOnly}"><span class="sw"></span>Incomplete only</button>
+      <button class="toggle${filters.completedOnly?' on':''}" id="comp" role="switch" aria-checked="${filters.completedOnly}"><span class="sw"></span>Completed only</button>
+    </div>
   </div>`;
 }
 function dataCardHTML(){
