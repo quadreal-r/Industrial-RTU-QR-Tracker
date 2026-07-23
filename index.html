@@ -315,8 +315,8 @@
 
 <script src="piexif.js"></script>
 <script>
-const APP_VER='v1.1.30';
-const BUILD=41;
+const APP_VER='v1.1.31';
+const BUILD=42;
 const CF_API='https://rtu-pictures-api.krutki11.workers.dev';
 const CF_SESSION_KEY='rtu_cf_session_token';
 function cfGetToken(){try{return sessionStorage.getItem(CF_SESSION_KEY)||'';}catch(_){return '';}}
@@ -560,7 +560,7 @@ function exifDateString(d){
   return d.getFullYear()+':'+pad2(d.getMonth()+1)+':'+pad2(d.getDate())+' '+pad2(d.getHours())+':'+pad2(d.getMinutes())+':'+pad2(d.getSeconds());
 }
 function displayDateString(d){
-  return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+' '+pad2(d.getHours())+':'+pad2(d.getMinutes());
+  return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
 }
 function getDeviceGps(timeoutMs){
   if(!navigator.geolocation) return Promise.resolve(null);
@@ -606,8 +606,8 @@ function buildExifBytes(gps,w,h,date){
   return piexif.dump({'0th':zeroth, Exif:exif, GPS:gpsIfd});
 }
 function drawPhotoOverlay(ctx,w,h,lines){
-  const pad=Math.max(14, Math.round(w*0.018));
-  const fontSize=Math.max(18, Math.round(w*0.026));
+  const pad=Math.max(12, Math.round(w*0.016));
+  const fontSize=Math.max(16, Math.round(w*(lines.length>1?0.026:0.022)));
   const lineH=Math.round(fontSize*1.32);
   const barH=pad*2+lines.length*lineH+Math.round(fontSize*0.15);
   ctx.save();
@@ -658,11 +658,8 @@ async function processAuditPhoto(file, meta, max=1920, quality=0.88){
   const ctx=c.getContext('2d');
   ctx.drawImage(src,0,0,w,hh);
   if(src.close) try{src.close();}catch(_){}
-  drawPhotoOverlay(ctx,w,hh,[
-    title,
-    address+(rtu?(address?' · ':'')+rtu:''),
-    displayDateString(now)
-  ]);
+  const stamp=[address,rtu,displayDateString(now)].filter(Boolean).join(' · ');
+  drawPhotoOverlay(ctx,w,hh,[stamp]);
   let jpegData=c.toDataURL('image/jpeg', quality);
   if(typeof piexif!=='undefined'){
     try{
