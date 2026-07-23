@@ -182,7 +182,11 @@
   .ang.has{border-style:solid;border-color:var(--qr-blue);padding:0;background:#0b1220;cursor:pointer;pointer-events:auto}
   .photos.pref .ang.has{border-color:var(--good)}
   .ang.has img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
-  .ang .ph-slot{position:absolute;left:3px;top:3px;z-index:1;min-width:14px;height:14px;padding:0 3px;border-radius:999px;background:rgba(11,18,32,.72);color:#fff;font-size:9px;font-weight:800;display:grid;place-items:center}
+  .ang .ph-slot{position:absolute;left:3px;top:3px;z-index:1;min-width:14px;height:14px;padding:0 3px;border-radius:999px;background:rgba(11,18,32,.72);color:#fff;font-size:9px;font-weight:800;display:grid;place-items:center;pointer-events:none}
+  .ang-del{position:absolute;right:3px;top:3px;z-index:2;width:22px;height:22px;border:none;border-radius:999px;background:rgba(176,28,28,.92);color:#fff;font-size:15px;font-weight:800;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0;box-shadow:0 2px 6px rgba(0,0,0,.28)}
+  .ang-del:active{transform:scale(.94)}
+  .ang.has{overflow:visible}
+  .ang.has img{border-radius:10px}
   .ang.has:active{transform:translateY(1px)}
   .ang.has:focus-visible{outline:2.5px solid var(--qr-blue);outline-offset:2px}
   .phint{margin-left:auto;font-size:12px;font-weight:800;color:var(--faint);white-space:nowrap}
@@ -303,6 +307,7 @@
   <div class="phv-bar">
     <a class="btn pri" id="phViewerOpen" href="#" target="_blank" rel="noopener" download>Open full size</a>
     <button type="button" class="btn" id="phViewerRetake">Retake</button>
+    <button type="button" class="btn" id="phViewerDelete">Delete</button>
     <button type="button" class="btn" id="phViewerClose">Close</button>
   </div>
 </div>
@@ -312,8 +317,8 @@
 
 <script src="piexif.js"></script>
 <script>
-const APP_VER='v1.1.28';
-const BUILD=39;
+const APP_VER='v1.1.29';
+const BUILD=40;
 const CF_API='https://rtu-pictures-api.krutki11.workers.dev';
 const CF_SESSION_KEY='rtu_cf_session_token';
 function cfGetToken(){try{return sessionStorage.getItem(CF_SESSION_KEY)||'';}catch(_){return '';}}
@@ -916,7 +921,7 @@ function photosBlockHTML(o){
   const angs=[0,1,2].map(i=>{
     const on=legacy?true:!!slots[i];
     if(on){
-      return `<a class="ang has" data-slot="${i}" href="#" aria-label="View photo ${i+1} of 3"><span class="ph-slot">${i+1}</span></a>`;
+      return `<a class="ang has" data-slot="${i}" href="#" aria-label="View photo ${i+1} of 3"><span class="ph-slot">${i+1}</span><button type="button" class="ang-del" data-del="${i}" aria-label="Delete photo ${i+1}">&times;</button></a>`;
     }
     return `<span class="ang" data-slot="${i}" aria-hidden="true"><span class="ph-slot">${i+1}</span></span>`;
   }).join('');
@@ -992,6 +997,7 @@ function wirePhotoViewerOnce(){
   wirePhotoViewerOnce.done=true;
   const close=document.getElementById('phViewerClose');
   const retake=document.getElementById('phViewerRetake');
+  const del=document.getElementById('phViewerDelete');
   const v=document.getElementById('phViewer');
   if(close) close.onclick=()=>closePhotoViewer();
   if(v) v.addEventListener('click',e=>{if(e.target===v) closePhotoViewer();});
@@ -1001,6 +1007,12 @@ function wirePhotoViewerOnce(){
     closePhotoViewer();
     pendingShot={id,k,slot,row,bi,b};
     if(file) file.click();
+  };
+  if(del) del.onclick=async ()=>{
+    if(!viewerCtx) return;
+    const {id,k,slot,row,bi,b}=viewerCtx;
+    const ok=await clearPhotoSlot(id,k,slot,row,bi,b);
+    if(ok) closePhotoViewer();
   };
   document.addEventListener('keydown',e=>{if(e.key==='Escape') closePhotoViewer();});
 }
@@ -1057,16 +1069,38 @@ function wireRtu(){
     paintPhotoThumbs(row,id,k,stateOf(id,k)||{});
   });
 }
-async function clearPhotoSlot(id,k,slot,row,bi,b){
+async function eraseDevicePhoto(id,k,slot,fname){
+  const key=photoSlotKey(id,k,slot);
+  try{await photoDel(key);}catch(_){}
+  try{
+    if(window.AndroidBridge && typeof AndroidBridge.deleteCachedPhoto==='function'){
+      AndroidBridge.deleteCachedPhoto(fname||key);
+    }
+  }catch(_){}
+}
+async function clearPhotoSlot(id,k,slot,row,bi,b,opts){
+  opts=opts||{};
   const m=rec(id,k);const o=m.r[k];
   const wasLegacy=!!(o.ph && (!Array.isArray(o.p) || !o.p.some(Boolean)));
-  if(!wasLegacy && !(Array.isArray(o.p) && o.p[slot])) return;
-  if(!confirm('Remove photo '+(slot+1)+' of 3?')) return;
-  try{await photoDel(photoSlotKey(id,k,slot));}catch(_){}
+  if(!wasLegacy && !(Array.isArray(o.p) && o.p[slot])) return false;
+  if(!opts.skipConfirm && !confirm('Delete photo '+(slot+1)+' of 3?\n\nThis permanently erases it from this device.')) return false;
+  const rObj=(b.rtus||[]).find(x=>x.k===k)||{k:k,name:k};
+  const fname=photoFileName(b,rObj,slot);
+  // Revoke any live preview URL for this slot
+  try{
+    const el=row&&row.querySelector('.ang.has[data-slot="'+slot+'"]');
+    if(el&&el.dataset.blobUrl){URL.revokeObjectURL(el.dataset.blobUrl);delete el.dataset.blobUrl;}
+  }catch(_){}
+  await eraseDevicePhoto(id,k,slot,fname);
   ensurePhotoSlots(o);
   if(wasLegacy){o.p=[false,false,false];o.ph=false;}
   else{o.p[slot]=false;syncPhotoFlag(o);}
-  persist(id);refreshRow(id,k,row,bi,b);
+  // Drop any leftover custom metadata
+  if(o.files&&typeof o.files==='object') delete o.files[slot];
+  persist(id);
+  if(row) refreshRow(id,k,row,bi,b);
+  toast('Photo deleted from device');
+  return true;
 }
 async function paintPhotoThumbs(row,id,k,o){
   const wrap=row.querySelector('.angs');
@@ -1087,19 +1121,23 @@ async function paintPhotoThumbs(row,id,k,o){
   }
   wrap.innerHTML=[0,1,2].map(i=>{
     const has=legacy?true:!!slots[i];
-    if(has) return `<a class="ang has" data-slot="${i}" href="#" aria-label="View photo ${i+1} of 3"><span class="ph-slot">${i+1}</span></a>`;
+    if(has) return `<a class="ang has" data-slot="${i}" href="#" aria-label="View photo ${i+1} of 3"><span class="ph-slot">${i+1}</span><button type="button" class="ang-del" data-del="${i}" aria-label="Delete photo ${i+1}">&times;</button></a>`;
     return `<span class="ang" data-slot="${i}" aria-hidden="true"><span class="ph-slot">${i+1}</span></span>`;
   }).join('');
   wrap.querySelectorAll('.ang.has').forEach(el=>{
     el.addEventListener('click',e=>{
+      if(e.target.closest('.ang-del')) return;
       e.preventDefault();
       const slot=+el.dataset.slot;
       if(!el.dataset.blobUrl) return;
       openPhotoViewer(el.dataset.blobUrl,{id,k,slot,row,bi,b,r,file});
     });
-    el.addEventListener('contextmenu',e=>{
+  });
+  wrap.querySelectorAll('.ang-del').forEach(btn=>{
+    btn.addEventListener('click',e=>{
       e.preventDefault();
-      clearPhotoSlot(id,k,+el.dataset.slot,row,bi,b);
+      e.stopPropagation();
+      clearPhotoSlot(id,k,+btn.dataset.del,row,bi,b);
     });
   });
   for(const el of wrap.querySelectorAll('.ang.has')){
@@ -1125,6 +1163,7 @@ async function paintPhotoThumbs(row,id,k,o){
     }catch(_){}
   }
 }
+
 function grow(ta){ta.style.height='auto';ta.style.height=Math.max(36,ta.scrollHeight)+'px';}
 function refreshRow(id,k,row,bi,b){
   const o=mem[id].r[k];
